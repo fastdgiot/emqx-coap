@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2020-2021 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 
--module(emqx_coap_ps_topics).
+-module(emqx_coap_pubsub_topics).
 
 -behaviour(gen_server).
 
@@ -104,7 +104,7 @@ lookup_topic_payload(Topic) ->
 %%--------------------------------------------------------------------
 
 init([]) ->
-    ets:new(?COAP_TOPIC_TABLE, [set, named_table, protected]),
+    _ = ets:new(?COAP_TOPIC_TABLE, [set, named_table, protected]),
     ?LOG(debug, "Create the coap_topic table", []),
     {ok, #state{}}.
 

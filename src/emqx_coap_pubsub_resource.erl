@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2020-2021 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 
--module(emqx_coap_ps_resource).
+-module(emqx_coap_pubsub_resource).
 
 -behaviour(coap_resource).
 
@@ -65,7 +65,7 @@ coap_get(ChId, ?PS_PREFIX, TopicPath, Query, Content=#coap_content{format = Form
             end;
         {error, auth_failure} ->
             put(mqtt_client_pid, undefined),
-            {error, uauthorized};
+            {error, unauthorized};
         {error, bad_request} ->
             put(mqtt_client_pid, undefined),
             {error, bad_request};
@@ -112,14 +112,16 @@ coap_observe(ChId, ?PS_PREFIX, TopicPath, Ack, Content) when TopicPath =/= [] ->
     Topic = topic(TopicPath),
     ?LOG(debug, "observe Topic=~p, Ack=~p，Content=~p", [Topic, Ack, Content]),
     Pid = get(mqtt_client_pid),
-    emqx_coap_mqtt_adapter:subscribe(Pid, Topic),
-    Code = case emqx_coap_ps_topics:is_topic_timeout(Topic) of
-               true  ->
-                   nocontent;
-               false->
-                   content
-           end,
-    {ok, {state, ChId, ?PS_PREFIX, [Topic]}, Code, Content};
+    case emqx_coap_mqtt_adapter:subscribe(Pid, Topic) of
+        ok ->
+            Code = case emqx_coap_pubsub_topics:is_topic_timeout(Topic) of
+               true -> nocontent;
+               false-> content
+            end,
+            {ok, {state, ChId, ?PS_PREFIX, [Topic]}, Code, Content};
+        {error, Code} ->
+            {error, Code}
+    end;
 
 coap_observe(ChId, Prefix, TopicPath, Ack, _Content) ->
     ?LOG(error, "unknown observe request ChId=~p, Prefix=~p, TopicPath=~p, Ack=~p", [ChId, Prefix, TopicPath, Ack]),
@@ -137,7 +139,7 @@ coap_unobserve({state, ChId, Prefix, TopicPath}) ->
 
 handle_info({dispatch, Topic, Payload}, State) ->
     ?LOG(debug, "dispatch Topic=~p, Payload=~p", [Topic, Payload]),
-    {ok, Ret} = emqx_coap_ps_topics:reset_topic_info(Topic, Payload),
+    {ok, Ret} = emqx_coap_pubsub_topics:reset_topic_info(Topic, Payload),
     ?LOG(debug, "Updated publish info of topic=~p, the Ret is ~p", [Topic, Ret]),
     {notify, [], #coap_content{format = <<"application/octet-stream">>, payload = Payload}, State};
 handle_info(Message, State) ->
@@ -166,7 +168,7 @@ get_auth([Param|T], Auth=#coap_mqtt_auth{}) ->
     get_auth(T, Auth).
 
 add_topic_info(publish, Topic, MaxAge, Format, Payload) when is_binary(Topic), Topic =/= <<>>  ->
-    case emqx_coap_ps_topics:lookup_topic_info(Topic) of
+    case emqx_coap_pubsub_topics:lookup_topic_info(Topic) of
         [{_, StoredMaxAge, StoredCT, _, _}] ->
             ?LOG(debug, "publish topic=~p already exists, need reset the topic info", [Topic]),
             %% check whether the ct value stored matches the ct option in this POST message
@@ -175,9 +177,9 @@ add_topic_info(publish, Topic, MaxAge, Format, Payload) when is_binary(Topic), T
                     {ok, Ret} =
                         case StoredMaxAge =:= MaxAge of
                             true  ->
-                                emqx_coap_ps_topics:reset_topic_info(Topic, Payload);
+                                emqx_coap_pubsub_topics:reset_topic_info(Topic, Payload);
                             false ->
-                                emqx_coap_ps_topics:reset_topic_info(Topic, MaxAge, Payload)
+                                emqx_coap_pubsub_topics:reset_topic_info(Topic, MaxAge, Payload)
                         end,
                     {changed, Ret};
                 false ->
@@ -186,19 +188,19 @@ add_topic_info(publish, Topic, MaxAge, Format, Payload) when is_binary(Topic), T
             end;
         [] ->
             ?LOG(debug, "publish topic=~p will be created", [Topic]),
-            {ok, Ret} = emqx_coap_ps_topics:add_topic_info(Topic, MaxAge, Format, Payload),
+            {ok, Ret} = emqx_coap_pubsub_topics:add_topic_info(Topic, MaxAge, Format, Payload),
             {created, Ret}
     end;
 
 add_topic_info(create, Topic, MaxAge, Format, _Payload) when is_binary(Topic), Topic =/= <<>> ->
-    case emqx_coap_ps_topics:is_topic_existed(Topic) of
+    case emqx_coap_pubsub_topics:is_topic_existed(Topic) of
         true ->
             %% Whether we should support CREATE to an existed topic is TBD!!
             ?LOG(debug, "create topic=~p already exists, need reset the topic info", [Topic]),
-            {ok, Ret} = emqx_coap_ps_topics:reset_topic_info(Topic, MaxAge, Format, <<>>);
+            {ok, Ret} = emqx_coap_pubsub_topics:reset_topic_info(Topic, MaxAge, Format, <<>>);
         false ->
             ?LOG(debug, "create topic=~p will be created", [Topic]),
-            {ok, Ret} = emqx_coap_ps_topics:add_topic_info(Topic, MaxAge, Format, <<>>)
+            {ok, Ret} = emqx_coap_pubsub_topics:add_topic_info(Topic, MaxAge, Format, <<>>)
     end,
     {created, Ret};
 
@@ -222,17 +224,19 @@ format_string_to_int(<<"application/json">>) ->
 
 handle_received_publish(Topic, MaxAge, Format, Payload) ->
     case add_topic_info(publish, Topic, MaxAge, format_string_to_int(Format), Payload) of
-        {Ret ,true}  ->
+        {Ret, true}  ->
             Pid = get(mqtt_client_pid),
-            emqx_coap_mqtt_adapter:publish(Pid, topic(Topic), Payload),
-            Content = case Ret of
-                          changed ->
-                              #coap_content{};
-                          created ->
-                              LocPath = concatenate_location_path([<<"ps">>, Topic, <<>>]),
-                              #coap_content{location_path = [LocPath]}
-                      end,
-            {ok, Ret, Content};
+            case emqx_coap_mqtt_adapter:publish(Pid, topic(Topic), Payload) of
+                ok ->
+                    {ok, Ret, case Ret of
+                        changed -> #coap_content{};
+                        created ->
+                            #coap_content{location_path = [
+                                concatenate_location_path([<<"ps">>, Topic, <<>>])]}
+                     end};
+                {error, Code} ->
+                    {error, Code}
+            end;
         {_, false} ->
             ?LOG(debug, "add_topic_info failed, will return bad_request", []),
             {error, bad_request}
@@ -241,7 +245,7 @@ handle_received_publish(Topic, MaxAge, Format, Payload) ->
 handle_received_create(TopicPrefix, MaxAge, Payload) ->
     case core_link:decode(Payload) of
         [{rootless, [Topic], [{ct, CT}]}] when is_binary(Topic), Topic =/= <<>> ->
-            TrueTopic = http_uri:decode(Topic),
+            TrueTopic = emqx_http_lib:uri_decode(Topic),
             ?LOG(debug, "decoded link-format payload, the Topic=~p, CT=~p~n", [TrueTopic, CT]),
             LocPath = concatenate_location_path([<<"ps">>, TopicPrefix, TrueTopic]),
             FullTopic = binary:part(LocPath, 4, byte_size(LocPath)-4),
@@ -275,7 +279,7 @@ return_resource(Topic, Payload, MaxAge, TimeStamp, Content) ->
 
 read_last_publish_message(false, Topic, Content=#coap_content{format = QueryFormat}) when is_binary(QueryFormat)->
     ?LOG(debug, "the QueryFormat=~p", [QueryFormat]),
-    case emqx_coap_ps_topics:lookup_topic_info(Topic) of
+    case emqx_coap_pubsub_topics:lookup_topic_info(Topic) of
         [] ->
             {error, not_found};
         [{_, MaxAge, CT, Payload, TimeStamp}] ->
@@ -289,7 +293,7 @@ read_last_publish_message(false, Topic, Content=#coap_content{format = QueryForm
     end;
 
 read_last_publish_message(false, Topic, Content) ->
-    case emqx_coap_ps_topics:lookup_topic_info(Topic) of
+    case emqx_coap_pubsub_topics:lookup_topic_info(Topic) of
         [] ->
             {error, not_found};
         [{_, MaxAge, _, Payload, TimeStamp}] ->
@@ -301,11 +305,11 @@ read_last_publish_message(true, Topic, _Content) ->
     {error, bad_request}.
 
 delete_topic_info(Topic) ->
-    case emqx_coap_ps_topics:lookup_topic_info(Topic) of
+    case emqx_coap_pubsub_topics:lookup_topic_info(Topic) of
         [] ->
             {error, not_found};
         [{_, _, _, _, _}] ->
-            emqx_coap_ps_topics:delete_sub_topics(Topic)
+            emqx_coap_pubsub_topics:delete_sub_topics(Topic)
     end.
 
 topic(Topic) when is_binary(Topic) -> Topic;

@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2020-2021 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -20,6 +20,12 @@
 
 -export([ start/1
         , stop/1
+        ]).
+
+-export([ start_listener/1
+        , start_listener/3
+        , stop_listener/1
+        , stop_listener/2
         ]).
 
 %%--------------------------------------------------------------------
@@ -49,7 +55,7 @@ start_listener({Proto, ListenOn, Opts}) ->
             io:format("Start coap:~s listener on ~s successfully.~n",
                       [Proto, format(ListenOn)]);
         {error, Reason} ->
-            io:format(standard_error, "Failed to start coap:~s listener on ~s - ~0p~n!",
+            io:format(standard_error, "Failed to start coap:~s listener on ~s: ~0p~n",
                       [Proto, format(ListenOn), Reason]),
             error(Reason)
     end.
@@ -65,7 +71,7 @@ stop_listener({Proto, ListenOn, _Opts}) ->
         ok -> io:format("Stop coap:~s listener on ~s successfully.~n",
                         [Proto, format(ListenOn)]);
         {error, Reason} ->
-            io:format(standard_error, "Failed to stop coap:~s listener on ~s - ~p~n.",
+            io:format(standard_error, "Failed to stop coap:~s listener on ~s: ~0p~n.",
                       [Proto, format(ListenOn), Reason])
     end,
     Ret.

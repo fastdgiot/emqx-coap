@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2020-2021 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,8 +86,8 @@ stop() ->
 %% ------------------------------------------------------------------
 
 init([]) ->
-    ets:new(?RESPONSE_TAB, [set, named_table, protected]),
-    ets:new(?RESPONSE_REF_TAB, [set, named_table, protected]),
+    _ = ets:new(?RESPONSE_TAB, [set, named_table, protected]),
+    _ = ets:new(?RESPONSE_REF_TAB, [set, named_table, protected]),
     {ok, #state{}}.
 
 handle_call({register_name, Name, Pid}, _From, State) ->

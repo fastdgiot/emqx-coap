@@ -1,5 +1,5 @@
 %%--------------------------------------------------------------------
-%% Copyright (c) 2020 EMQ Technologies Co., Ltd. All Rights Reserved.
+%% Copyright (c) 2020-2021 EMQ Technologies Co., Ltd. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 %% limitations under the License.
 %%--------------------------------------------------------------------
 
--module(emqx_coap_ps_SUITE).
+-module(emqx_coap_pubsub_SUITE).
 
 -compile(export_all).
 -compile(nowarn_export_all).
@@ -28,12 +28,12 @@
 all() -> emqx_ct:all(?MODULE).
 
 init_per_suite(Config) ->
-    emqx_ct_helpers:start_apps([emqx_coap], fun set_sepecial_cfg/1),
+    emqx_ct_helpers:start_apps([emqx_coap], fun set_special_cfg/1),
     Config.
 
-set_sepecial_cfg(emqx_coap) ->
+set_special_cfg(emqx_coap) ->
     application:set_env(emqx_coap, enable_stats, true);
-set_sepecial_cfg(_) ->
+set_special_cfg(_) ->
     ok.
 
 end_per_suite(Config) ->
@@ -54,7 +54,7 @@ t_update_max_age(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    TopicInfo = [{TopicInPayload, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(TopicInPayload),
+    TopicInfo = [{TopicInPayload, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(TopicInPayload),
     ?LOGT("lookup topic info=~p", [TopicInfo]),
     ?assertEqual(60, MaxAge1),
     ?assertEqual(<<"42">>, CT1),
@@ -65,7 +65,7 @@ t_update_max_age(_Config) ->
     Reply1 = er_coap_client:request(post, URI, #coap_content{max_age = 70, format = <<"application/link-format">>, payload = Payload1}),
     {ok,created, #coap_content{location_path = LocPath}} = Reply1,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    [{TopicInPayload, MaxAge2, CT2, _ResPayload, _TimeStamp1}] = emqx_coap_ps_topics:lookup_topic_info(TopicInPayload),
+    [{TopicInPayload, MaxAge2, CT2, _ResPayload, _TimeStamp1}] = emqx_coap_pubsub_topics:lookup_topic_info(TopicInPayload),
     ?assertEqual(70, MaxAge2),
     ?assertEqual(<<"50">>, CT2),
 
@@ -82,7 +82,7 @@ t_create_subtopic(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    TopicInfo = [{TopicInPayload, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(TopicInPayload),
+    TopicInfo = [{TopicInPayload, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(TopicInPayload),
     ?LOGT("lookup topic info=~p", [TopicInfo]),
     ?assertEqual(60, MaxAge1),
     ?assertEqual(<<"42">>, CT1),
@@ -99,7 +99,7 @@ t_create_subtopic(_Config) ->
     ?LOGT("Reply =~p", [Reply1]),
     {ok,created, #coap_content{location_path = LocPath1}} = Reply1,
     ?assertEqual([<<"/ps/topic1/subtopic">>] ,LocPath1),
-    [{FullTopic, MaxAge2, CT2, _ResPayload, _}] = emqx_coap_ps_topics:lookup_topic_info(FullTopic),
+    [{FullTopic, MaxAge2, CT2, _ResPayload, _}] = emqx_coap_pubsub_topics:lookup_topic_info(FullTopic),
     ?assertEqual(60, MaxAge2),
     ?assertEqual(<<"42">>, CT2),
 
@@ -114,13 +114,13 @@ t_over_max_age(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    TopicInfo = [{TopicInPayload, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(TopicInPayload),
+    TopicInfo = [{TopicInPayload, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(TopicInPayload),
     ?LOGT("lookup topic info=~p", [TopicInfo]),
     ?assertEqual(2, MaxAge1),
     ?assertEqual(<<"42">>, CT1),
 
     timer:sleep(3000),
-    ?assertEqual(true, emqx_coap_ps_topics:is_topic_timeout(TopicInPayload)).
+    ?assertEqual(true, emqx_coap_pubsub_topics:is_topic_timeout(TopicInPayload)).
 
 t_refreash_max_age(_Config) ->
     TopicInPayload = <<"topic1">>,
@@ -132,7 +132,7 @@ t_refreash_max_age(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    TopicInfo = [{TopicInPayload, MaxAge1, CT1, _ResPayload, TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(TopicInPayload),
+    TopicInfo = [{TopicInPayload, MaxAge1, CT1, _ResPayload, TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(TopicInPayload),
     ?LOGT("lookup topic info=~p", [TopicInfo]),
     ?LOGT("TimeStamp=~p", [TimeStamp]),
     ?assertEqual(5, MaxAge1),
@@ -144,13 +144,13 @@ t_refreash_max_age(_Config) ->
     Reply1 = er_coap_client:request(post, URI, #coap_content{max_age = 5, format = <<"application/link-format">>, payload = Payload1}),
     {ok,created, #coap_content{location_path = LocPath}} = Reply1,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    [{TopicInPayload, MaxAge2, CT2, _ResPayload, TimeStamp1}] = emqx_coap_ps_topics:lookup_topic_info(TopicInPayload),
+    [{TopicInPayload, MaxAge2, CT2, _ResPayload, TimeStamp1}] = emqx_coap_pubsub_topics:lookup_topic_info(TopicInPayload),
     ?LOGT("TimeStamp1=~p", [TimeStamp1]),
     ?assertEqual(5, MaxAge2),
     ?assertEqual(<<"50">>, CT2),
 
     timer:sleep(3000),
-    ?assertEqual(false, emqx_coap_ps_topics:is_topic_timeout(TopicInPayload)),
+    ?assertEqual(false, emqx_coap_pubsub_topics:is_topic_timeout(TopicInPayload)),
 
     {ok, deleted, #coap_content{}} = er_coap_client:request(delete, RealURI).
 
@@ -168,12 +168,12 @@ t_case01_publish_post(_Config) ->
     ?LOGT("Reply =~p", [Reply1]),
     {ok,created, #coap_content{location_path = LocPath1}} = Reply1,
     ?assertEqual([<<"/ps/maintopic/topic1">>] ,LocPath1),
-    [{FullTopic, MaxAge, CT2, <<>>, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(FullTopic),
+    [{FullTopic, MaxAge, CT2, <<>>, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(FullTopic),
     ?assertEqual(60, MaxAge),
     ?assertEqual(<<"42">>, CT2),
 
     %% post to publish message to topic maintopic/topic1
-    FullTopicStr = http_uri:encode(binary_to_list(FullTopic)),
+    FullTopicStr = emqx_http_lib:uri_encode(binary_to_list(FullTopic)),
     URI2 = "coap://127.0.0.1/ps/"++FullTopicStr++"?c=client1&u=tom&p=secret",
     PubPayload = <<"PUBLISH">>,
 
@@ -183,7 +183,7 @@ t_case01_publish_post(_Config) ->
     Reply2 = er_coap_client:request(post, URI2, #coap_content{format = <<"application/octet-stream">>, payload = PubPayload}),
     ?LOGT("Reply =~p", [Reply2]),
     {ok,changed, _} = Reply2,
-    TopicInfo = [{FullTopic, MaxAge, CT2, PubPayload, _TimeStamp1}] = emqx_coap_ps_topics:lookup_topic_info(FullTopic),
+    TopicInfo = [{FullTopic, MaxAge, CT2, PubPayload, _TimeStamp1}] = emqx_coap_pubsub_topics:lookup_topic_info(FullTopic),
     ?LOGT("the topic info =~p", [TopicInfo]),
 
     assert_recv(FullTopic, PubPayload),
@@ -203,7 +203,7 @@ t_case02_publish_post(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?assertEqual(60, MaxAge),
     ?assertEqual(<<"42">>, CT),
 
@@ -214,7 +214,7 @@ t_case02_publish_post(_Config) ->
     Reply1 = er_coap_client:request(post, URI, #coap_content{format = <<"application/octet-stream">>, payload = NewPayload}),
     ?LOGT("Reply =~p", [Reply1]),
     {ok,changed, _} = Reply1,
-    [{Topic, MaxAge, CT, NewPayload, _TimeStamp1}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    [{Topic, MaxAge, CT, NewPayload, _TimeStamp1}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
 
     assert_recv(Topic, NewPayload),
     {ok, deleted, #coap_content{}} = er_coap_client:request(delete, URI).
@@ -233,7 +233,7 @@ t_case03_publish_post(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?assertEqual(60, MaxAge),
     ?assertEqual(<<"42">>, CT),
 
@@ -258,13 +258,13 @@ t_case04_publish_post(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?assertEqual(5, MaxAge),
     ?assertEqual(<<"42">>, CT),
 
     %% after max age timeout, the topic still exists but the status is timeout
     timer:sleep(6000),
-    ?assertEqual(true, emqx_coap_ps_topics:is_topic_timeout(Topic)),
+    ?assertEqual(true, emqx_coap_pubsub_topics:is_topic_timeout(Topic)),
 
     {ok, deleted, #coap_content{}} = er_coap_client:request(delete, URI).
 
@@ -281,12 +281,12 @@ t_case01_publish_put(_Config) ->
     ?LOGT("Reply =~p", [Reply1]),
     {ok,created, #coap_content{location_path = LocPath1}} = Reply1,
     ?assertEqual([<<"/ps/maintopic/topic1">>] ,LocPath1),
-    [{FullTopic, MaxAge, CT2, <<>>, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(FullTopic),
+    [{FullTopic, MaxAge, CT2, <<>>, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(FullTopic),
     ?assertEqual(60, MaxAge),
     ?assertEqual(<<"42">>, CT2),
 
     %% put to publish message to topic maintopic/topic1
-    FullTopicStr = http_uri:encode(binary_to_list(FullTopic)),
+    FullTopicStr = emqx_http_lib:uri_encode(binary_to_list(FullTopic)),
     URI2 = "coap://127.0.0.1/ps/"++FullTopicStr++"?c=client1&u=tom&p=secret",
     PubPayload = <<"PUBLISH">>,
 
@@ -296,7 +296,7 @@ t_case01_publish_put(_Config) ->
     Reply2 = er_coap_client:request(put, URI2, #coap_content{format = <<"application/octet-stream">>, payload = PubPayload}),
     ?LOGT("Reply =~p", [Reply2]),
     {ok,changed, _} = Reply2,
-    [{FullTopic, MaxAge, CT2, PubPayload, _TimeStamp1}] = emqx_coap_ps_topics:lookup_topic_info(FullTopic),
+    [{FullTopic, MaxAge, CT2, PubPayload, _TimeStamp1}] = emqx_coap_pubsub_topics:lookup_topic_info(FullTopic),
 
     assert_recv(FullTopic, PubPayload),
 
@@ -316,7 +316,7 @@ t_case02_publish_put(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?assertEqual(60, MaxAge),
     ?assertEqual(<<"42">>, CT),
 
@@ -327,7 +327,7 @@ t_case02_publish_put(_Config) ->
     Reply1 = er_coap_client:request(put, URI, #coap_content{format = <<"application/octet-stream">>, payload = NewPayload}),
     ?LOGT("Reply =~p", [Reply1]),
     {ok,changed, _} = Reply1,
-    [{Topic, MaxAge, CT, NewPayload, _TimeStamp1}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    [{Topic, MaxAge, CT, NewPayload, _TimeStamp1}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
 
     assert_recv(Topic, NewPayload),
 
@@ -347,7 +347,7 @@ t_case03_publish_put(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?assertEqual(60, MaxAge),
     ?assertEqual(<<"42">>, CT),
 
@@ -372,7 +372,7 @@ t_case04_publish_put(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/topic1">>] ,LocPath),
-    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?assertEqual(5, MaxAge),
     ?assertEqual(<<"42">>, CT),
 
@@ -381,7 +381,7 @@ t_case04_publish_put(_Config) ->
     % but there is one thing to do is we don't count in the publish message received from emqx(from other node).TBD!!!!!!!!!!!!!
     %%%%%%%%%%%%%%%%%%%%%%%%%%
     timer:sleep(6000),
-    ?assertEqual(true, emqx_coap_ps_topics:is_topic_timeout(Topic)),
+    ?assertEqual(true, emqx_coap_pubsub_topics:is_topic_timeout(Topic)),
 
     {ok, deleted, #coap_content{}} = er_coap_client:request(delete, URI).
 
@@ -396,7 +396,7 @@ t_case01_subscribe(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = [LocPath]}} = Reply,
     ?assertEqual(<<"/ps/topic1">> ,LocPath),
-    TopicInfo = [{Topic, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    TopicInfo = [{Topic, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?LOGT("lookup topic info=~p", [TopicInfo]),
     ?assertEqual(60, MaxAge1),
     ?assertEqual(<<"42">>, CT1),
@@ -417,13 +417,12 @@ t_case01_subscribe(_Config) ->
     ?LOGT("observer get Notif=~p", [Notif]),
     {coap_notify, _, _, {ok,content}, #coap_content{payload = PayloadRecv}} = Notif,
 
-    ?_assertEqual(Payload, PayloadRecv),
+    ?assertEqual(Payload, PayloadRecv),
 
     %% GET to read the publish message of the topic
     Reply1 = er_coap_client:request(get, Uri1),
     ?LOGT("Reply=~p", [Reply1]),
-    {ok,content, #coap_content{max_age = MaxAgeLeft,payload = <<"123">>}} = Reply1,
-    ?_assertEqual(true, MaxAgeLeft<60),
+    {ok,content, #coap_content{payload = <<"123">>}} = Reply1,
 
     er_coap_observer:stop(Pid),
     {ok, deleted, #coap_content{}} = er_coap_client:request(delete, Uri1).
@@ -431,7 +430,7 @@ t_case01_subscribe(_Config) ->
 t_case02_subscribe(_Config) ->
     Topic = <<"a/b">>,
     TopicStr = binary_to_list(Topic),
-    PercentEncodedTopic = http_uri:encode(TopicStr),
+    PercentEncodedTopic = emqx_http_lib:uri_encode(TopicStr),
     Payload = <<"payload">>,
 
     %% post to publish a new topic "a/b", and the topic is created
@@ -440,13 +439,13 @@ t_case02_subscribe(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/a/b">>] ,LocPath),
-    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?assertEqual(5, MaxAge),
     ?assertEqual(<<"42">>, CT),
 
     %% Wait for the max age of the timer expires
     timer:sleep(6000),
-    ?assertEqual(true, emqx_coap_ps_topics:is_topic_timeout(Topic)),
+    ?assertEqual(true, emqx_coap_pubsub_topics:is_topic_timeout(Topic)),
 
     %% Subscribe to the timeout topic "a/b", still successfully，got {ok, nocontent} Method
     Uri = "coap://127.0.0.1/ps/"++PercentEncodedTopic++"?c=client1&u=tom&p=secret",
@@ -459,7 +458,7 @@ t_case02_subscribe(_Config) ->
     %% put to publish to topic "a/b"
     Reply2 = er_coap_client:request(put, URI, #coap_content{format = <<"application/octet-stream">>, payload = Payload}),
     {ok,changed, #coap_content{}} = Reply2,
-    [{Topic, MaxAge1, CT, Payload, TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    [{Topic, MaxAge1, CT, Payload, TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?assertEqual(60, MaxAge1),
     ?assertEqual(<<"42">>, CT),
     ?assertEqual(false, TimeStamp =:= timeout),
@@ -478,7 +477,7 @@ t_case03_subscribe(_Config) ->
     %% Subscribe to the unexisted topic "a/b", got not_found
     Topic = <<"a/b">>,
     TopicStr = binary_to_list(Topic),
-    PercentEncodedTopic = http_uri:encode(TopicStr),
+    PercentEncodedTopic = emqx_http_lib:uri_encode(TopicStr),
     Uri = "coap://127.0.0.1/ps/"++PercentEncodedTopic++"?c=client1&u=tom&p=secret",
     {error, not_found} = er_coap_observer:observe(Uri),
 
@@ -488,7 +487,7 @@ t_case04_subscribe(_Config) ->
     %% Subscribe to the wildcad topic "+/b", got bad_request
     Topic = <<"+/b">>,
     TopicStr = binary_to_list(Topic),
-    PercentEncodedTopic = http_uri:encode(TopicStr),
+    PercentEncodedTopic = emqx_http_lib:uri_encode(TopicStr),
     Uri = "coap://127.0.0.1/ps/"++PercentEncodedTopic++"?c=client1&u=tom&p=secret",
     {error, bad_request} = er_coap_observer:observe(Uri),
 
@@ -506,16 +505,16 @@ t_case01_read(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = [LocPath]}} = Reply,
     ?assertEqual(<<"/ps/topic1">> ,LocPath),
-    TopicInfo = [{Topic, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    TopicInfo = [{Topic, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?LOGT("lookup topic info=~p", [TopicInfo]),
     ?assertEqual(60, MaxAge1),
     ?assertEqual(<<"42">>, CT1),
 
     %% GET to read the publish message of the topic
+    timer:sleep(1000),
     Reply1 = er_coap_client:request(get, Uri),
     ?LOGT("Reply=~p", [Reply1]),
-    {ok,content, #coap_content{max_age = MaxAgeLeft,payload = Payload}} = Reply1,
-    ?_assertEqual(true, MaxAgeLeft<60),
+    {ok,content, #coap_content{payload = Payload}} = Reply1,
 
     {ok, deleted, #coap_content{}} = er_coap_client:request(delete, Uri).
 
@@ -531,7 +530,7 @@ t_case02_read(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = [LocPath]}} = Reply,
     ?assertEqual(<<"/ps/topic1">> ,LocPath),
-    TopicInfo = [{Topic, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    TopicInfo = [{Topic, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?LOGT("lookup topic info=~p", [TopicInfo]),
     ?assertEqual(60, MaxAge1),
     ?assertEqual(<<"42">>, CT1),
@@ -566,7 +565,7 @@ t_case04_read(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = [LocPath]}} = Reply,
     ?assertEqual(<<"/ps/topic1">> ,LocPath),
-    TopicInfo = [{Topic, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    TopicInfo = [{Topic, MaxAge1, CT1, _ResPayload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?LOGT("lookup topic info=~p", [TopicInfo]),
     ?assertEqual(60, MaxAge1),
     ?assertEqual(<<"42">>, CT1),
@@ -583,7 +582,7 @@ t_case04_read(_Config) ->
 t_case05_read(_Config) ->
     Topic = <<"a/b">>,
     TopicStr = binary_to_list(Topic),
-    PercentEncodedTopic = http_uri:encode(TopicStr),
+    PercentEncodedTopic = emqx_http_lib:uri_encode(TopicStr),
     Payload = <<"payload">>,
 
     %% post to publish a new topic "a/b", and the topic is created
@@ -592,13 +591,13 @@ t_case05_read(_Config) ->
     ?LOGT("Reply =~p", [Reply]),
     {ok,created, #coap_content{location_path = LocPath}} = Reply,
     ?assertEqual([<<"/ps/a/b">>] ,LocPath),
-    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_ps_topics:lookup_topic_info(Topic),
+    [{Topic, MaxAge, CT, Payload, _TimeStamp}] = emqx_coap_pubsub_topics:lookup_topic_info(Topic),
     ?assertEqual(5, MaxAge),
     ?assertEqual(<<"42">>, CT),
 
     %% Wait for the max age of the timer expires
     timer:sleep(6000),
-    ?assertEqual(true, emqx_coap_ps_topics:is_topic_timeout(Topic)),
+    ?assertEqual(true, emqx_coap_pubsub_topics:is_topic_timeout(Topic)),
 
     %% GET to read the expired publish message, supposed to get {ok, nocontent}, but now got {ok, content}
     Reply1 = er_coap_client:request(get, URI),
@@ -610,7 +609,7 @@ t_case05_read(_Config) ->
 t_case01_delete(_Config) ->
     TopicInPayload = <<"a/b">>,
     TopicStr = binary_to_list(TopicInPayload),
-    PercentEncodedTopic = http_uri:encode(TopicStr),
+    PercentEncodedTopic = emqx_http_lib:uri_encode(TopicStr),
     Payload = list_to_binary("<"++PercentEncodedTopic++">;ct=42"),
     URI = "coap://127.0.0.1/ps/"++"?c=client1&u=tom&p=secret",
 
@@ -622,7 +621,7 @@ t_case01_delete(_Config) ->
 
     %% Client post to CREATE topic "a/b/c"
     TopicInPayload1 = <<"a/b/c">>,
-    PercentEncodedTopic1 = http_uri:encode(binary_to_list(TopicInPayload1)),
+    PercentEncodedTopic1 = emqx_http_lib:uri_encode(binary_to_list(TopicInPayload1)),
     Payload1 = list_to_binary("<"++PercentEncodedTopic1++">;ct=42"),
     Reply1 = er_coap_client:request(post, URI, #coap_content{format = <<"application/link-format">>, payload = Payload1}),
     ?LOGT("Reply =~p", [Reply1]),
@@ -634,16 +633,17 @@ t_case01_delete(_Config) ->
     %% DELETE the topic "a/b"
     UriD = "coap://127.0.0.1/ps/"++PercentEncodedTopic++"?c=client1&u=tom&p=secret",
     ReplyD = er_coap_client:request(delete, UriD),
-    ?LOGT("Reply=~p", [Reply1]),
+    ?LOGT("Reply=~p", [ReplyD]),
     {ok, deleted, #coap_content{}}= ReplyD,
 
-    ?assertEqual(false, emqx_coap_ps_topics:is_topic_existed(TopicInPayload)),
-    ?assertEqual(false, emqx_coap_ps_topics:is_topic_existed(TopicInPayload1)).
+    timer:sleep(300), %% Waiting gen_server:cast/2 for deleting operation
+    ?assertEqual(false, emqx_coap_pubsub_topics:is_topic_existed(TopicInPayload)),
+    ?assertEqual(false, emqx_coap_pubsub_topics:is_topic_existed(TopicInPayload1)).
 
 t_case02_delete(_Config) ->
     TopicInPayload = <<"a/b">>,
     TopicStr = binary_to_list(TopicInPayload),
-    PercentEncodedTopic = http_uri:encode(TopicStr),
+    PercentEncodedTopic = emqx_http_lib:uri_encode(TopicStr),
 
     %% DELETE the unexisted topic "a/b"
     Uri1 = "coap://127.0.0.1/ps/"++PercentEncodedTopic++"?c=client1&u=tom&p=secret",
